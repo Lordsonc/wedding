@@ -20,7 +20,6 @@ import bg2 from './assets/wedding1.jpeg.webp';
 import bg3 from './assets/wedding3.jpeg.webp';
 import bg4 from './assets/wedding4.jpeg.webp';
 
-// Filter out any unresolved image imports to prevent runtime breaks
 const slideshowImages = [bg1, bg2, bg3, bg4].filter(Boolean);
 
 export default function App() {
@@ -42,7 +41,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Ensure blob preview URLs are revoked when component unmounts
   useEffect(() => {
     return () => {
       if (previews.length > 0) {
@@ -79,7 +77,6 @@ export default function App() {
     });
 
     try {
-      // Reads backend base URL strictly from environment config
       const backendUrl = import.meta.env.VITE_API_URL;
 
       if (!backendUrl) {
@@ -106,19 +103,19 @@ export default function App() {
   }, [selectedFiles, previews]);
 
   return (
-    <div className="min-h-screen bg-[#521C38] text-white flex flex-col font-serif">
+    <div className="relative min-h-screen text-white flex flex-col font-serif overflow-x-hidden selection:bg-pink-500 selection:text-white">
+      
+      {/* 1. FIXED BACKGROUND SLIDESHOW COVERING FULL VIEWPORT */}
+      <BackgroundSlideshow 
+        images={slideshowImages} 
+        current={currentBg} 
+      />
+
+      {/* 2. SCROLLABLE TRANSPARENT CONTENT LAYERS */}
       
       {/* SECTION 1: HERO CONTAINER */}
-      <div className="relative min-h-[90vh] md:min-h-screen flex flex-col items-center justify-between py-12 px-4 overflow-hidden">
-        
-        {/* Background Slideshow */}
-        <BackgroundSlideshow 
-          images={slideshowImages} 
-          current={currentBg} 
-        />
-
-        {/* Interactive Content */}
-        <div className="relative z-10 w-full flex flex-col items-center h-full justify-between gap-10">
+      <div className="relative z-10 min-h-[85vh] sm:min-h-[90vh] md:min-h-screen flex flex-col items-center justify-between py-6 sm:py-10 md:py-12 px-3 sm:px-6 bg-transparent">
+        <div className="w-full max-w-6xl mx-auto flex flex-col items-center justify-between gap-6 sm:gap-8 md:gap-10">
           <HeroSection
             title="Capture Our Day"
             subtitle="Lets Make A Collection Of Our Wedding Memories"
@@ -127,8 +124,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* SECTION 2: UPLOADER */}
-      <div className="relative z-10 bg-[#47122E] py-12 px-4 flex flex-col items-center text-center">
+      {/* SECTION 2: UPLOADER & CELEBRATION DETAILS */}
+      <div className="relative z-10 bg-transparent py-8 sm:py-12 md:py-16 px-3 sm:px-6 flex flex-col items-center text-center gap-6 sm:gap-10">
         <UploadZone
           previews={previews}
           onFilesSelected={handleFilesSelected}
@@ -144,7 +141,9 @@ export default function App() {
       </div>
 
       {/* SECTION 3: FOOTER */}
-      <Footer developerTag="TECH_AGBERO" />
+      <div className="relative z-10 bg-transparent mt-auto">
+        <Footer developerTag="TECH_AGBERO" />
+      </div>
     </div>
   );
 }

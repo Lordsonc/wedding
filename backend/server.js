@@ -26,17 +26,17 @@ const upload = multer({
   }
 });
 
-// Auth with Google Drive API
+// 2. Auth with Google Drive API (Full drive scope for service accounts)
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.resolve('./service-account.json'),
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
+  keyFile: path.resolve('./google-service-account.json'),
+  scopes: ['https://www.googleapis.com/auth/drive'],
 });
 
 const drive = google.drive({ version: 'v3', auth });
 
 const uploadMultiple = upload.array('images', 5);
 
-// Multiple Images Upload Endpoint
+// 3. Multiple Images Upload Endpoint
 app.post('/api/upload', (req, res, next) => {
   uploadMultiple(req, res, (err) => {
     if (err instanceof multer.MulterError) {
@@ -58,7 +58,7 @@ app.post('/api/upload', (req, res, next) => {
       return res.status(400).json({ error: 'No image files provided.' });
     }
 
-    // 3. Map over req.files array and upload each image concurrently
+    // Map over req.files array and upload each image concurrently
     const uploadPromises = req.files.map((file) => {
       const bufferStream = new Readable();
       bufferStream.push(file.buffer);
@@ -75,7 +75,7 @@ app.post('/api/upload', (req, res, next) => {
       };
 
       return drive.files.create({
-        resource: fileMetaData,
+        requestBody: fileMetaData, // Updated parameter name for API v3
         media: media,
         fields: 'id, name, webViewLink',
       });

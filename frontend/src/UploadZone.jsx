@@ -17,13 +17,13 @@ const UploadZone = memo(({ previews, onFilesSelected, uploading, onUpload, messa
   };
 
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="w-full flex flex-col items-center px-4 sm:px-6">
       {/* Drag & Drop Area */}
       <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className="w-full max-w-4xl border-2 border-dashed border-pink-300/60 rounded-3xl p-8 md:p-12 bg-stone-200/10 backdrop-blur-md cursor-pointer hover:bg-stone-200/20 transition"
+        className="w-full max-w-4xl border-2 border-dashed border-pink-300/60 rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-8 md:p-12 bg-stone-200/10 backdrop-blur-md cursor-pointer hover:bg-stone-200/20 transition-colors duration-300"
       >
         <input
           type="file"
@@ -34,22 +34,23 @@ const UploadZone = memo(({ previews, onFilesSelected, uploading, onUpload, messa
           onChange={(e) => e.target.files?.length && onFilesSelected(e.target.files)}
         />
 
-        <h2 className="text-xl md:text-3xl text-stone-100 uppercase tracking-widest font-normal mb-2">
+        <h2 className="text-base xs:text-lg sm:text-2xl md:text-3xl text-stone-100 uppercase tracking-wide sm:tracking-widest font-normal mb-2 leading-snug sm:leading-normal">
           Share Your Favorite Moment From Our Day With Us
         </h2>
-        <p className="text-sm md:text-base text-stone-300 font-light">
+        
+        <p className="text-xs xs:text-sm md:text-base text-stone-300 font-light leading-relaxed max-w-2xl mx-auto">
           Drag & drop or click to upload photos and videos (JPG, PNG, MP4, etc.) up to 5 files at once
         </p>
 
         {/* Previews Grid */}
         {previews.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-4 mt-6">
+          <div className="flex flex-wrap justify-center gap-2 xs:gap-3 sm:gap-4 mt-4 sm:mt-6">
             {previews.map((item) => (
               <img
                 key={item.id}
                 src={item.url}
                 alt="Preview"
-                className="w-20 h-20 object-cover rounded-lg border-2 border-pink-400 shadow-md"
+                className="w-14 h-14 xs:w-16 xs:h-16 sm:w-20 sm:h-20 object-cover rounded-lg border-2 border-pink-400 shadow-md"
               />
             ))}
           </div>
@@ -60,14 +61,14 @@ const UploadZone = memo(({ previews, onFilesSelected, uploading, onUpload, messa
       <button
         onClick={onUpload}
         disabled={uploading || previews.length === 0}
-        className="mt-8 px-8 py-3 bg-[#8B2152]/80 hover:bg-[#8B2152] text-stone-200 rounded-2xl border border-pink-400/40 text-lg tracking-wider flex items-center gap-2 shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-6 sm:mt-8 px-6 sm:px-8 py-2.5 sm:py-3 bg-[#8B2152]/80 hover:bg-[#8B2152] active:scale-[0.98] text-stone-200 rounded-xl sm:rounded-2xl border border-pink-400/40 text-sm sm:text-lg tracking-wide sm:tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed max-w-full"
       >
         <span>✦</span> {uploading ? 'UPLOADING TO DRIVE...' : 'SHARE MEMORIES'}
       </button>
 
       {/* Dynamic Feedback Message */}
       {message.text && (
-        <p className={`mt-4 text-lg font-medium ${message.isError ? 'text-red-300' : 'text-green-300'}`}>
+        <p className={`mt-3 sm:mt-4 text-xs xs:text-sm sm:text-base md:text-lg font-medium text-center px-2 ${message.isError ? 'text-red-300' : 'text-green-300'}`}>
           {message.text}
         </p>
       )}
