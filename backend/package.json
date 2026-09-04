@@ -4,8 +4,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "node --env-file=.env --watch server.js",
+    "start": "node --env-file=.env server.js"
   },
   "keywords": [],
   "author": "",
@@ -13,7 +13,6 @@
   "description": "",
   "dependencies": {
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "googleapis": "^178.0.0",
     "multer": "^2.3.0"

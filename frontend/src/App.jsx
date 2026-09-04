@@ -134,9 +134,9 @@ export default function App() {
           message={message}
         />
         <CelebrationDetails
-          coupleNames="OLUSHOLA & OMOBOLAJI'S"
+          coupleNames="ESTHER & LAWRENCE'S"
           dateText="June 22, 2025"
-          hashtag="#DECARSON♥STORY25"
+          hashtag="#THELAW♥STORY25"
         />
       </div>
 
