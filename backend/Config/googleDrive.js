@@ -4,18 +4,29 @@ const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_REFRESH_TOKEN,
+  GOOGLE_DRIVE_FOLDER_ID,
 } = process.env;
 
 if (!GOOGLE_CLIENT_ID) {
-  throw new Error('GOOGLE_CLIENT_ID is missing from .env');
+  throw new Error('GOOGLE_CLIENT_ID is missing from environment variables.');
 }
 
 if (!GOOGLE_CLIENT_SECRET) {
-  throw new Error('GOOGLE_CLIENT_SECRET is missing from .env');
+  throw new Error(
+    'GOOGLE_CLIENT_SECRET is missing from environment variables.'
+  );
 }
 
 if (!GOOGLE_REFRESH_TOKEN) {
-  throw new Error('GOOGLE_REFRESH_TOKEN is missing from .env');
+  throw new Error(
+    'GOOGLE_REFRESH_TOKEN is missing from environment variables.'
+  );
+}
+
+if (!GOOGLE_DRIVE_FOLDER_ID) {
+  throw new Error(
+    'GOOGLE_DRIVE_FOLDER_ID is missing from environment variables.'
+  );
 }
 
 const oauth2Client = new google.auth.OAuth2(

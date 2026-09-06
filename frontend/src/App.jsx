@@ -135,8 +135,8 @@ export default function App() {
         />
         <CelebrationDetails
           coupleNames="ESTHER & LAWRENCE'S"
-          dateText="June 22, 2025"
-          hashtag="#THELAW♥STORY25"
+          dateText="October 24, 2026"
+          hashtag="#THELAW♥STORY26"
         />
       </div>
 

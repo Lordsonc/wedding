@@ -1,23 +1,110 @@
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_FILES = 5;
+// ==========================================
+// CONFIGURATION
+// ==========================================
 
-const upload = multer({
-  storage: multer.memoryStorage(),
+const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40 MB
+const MAX_IMAGES = 10;
+const MAX_VIDEOS = 5;
 
-  limits: {
-    fileSize: MAX_FILE_SIZE,
-    files: MAX_FILES,
+// ==========================================
+// TEMPORARY UPLOAD DIRECTORY
+// ==========================================
+
+const uploadDir = path.resolve('temp');
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// ==========================================
+// DISK STORAGE
+// ==========================================
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
   },
 
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) {
-      return cb(new Error('Only image files are allowed.'));
-    }
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname);
 
-    cb(null, true);
+    const filename = `${Date.now()}-${Math.round(
+      Math.random() * 1e9
+    )}${extension}`;
+
+    cb(null, filename);
   },
 });
 
-export const uploadImages = upload.array('images', MAX_FILES);
+// ==========================================
+// ALLOWED FILE TYPES
+// ==========================================
+
+const allowedImages = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
+
+const allowedVideos = [
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-msvideo',
+];
+
+// ==========================================
+// FILE FILTER
+// ==========================================
+
+const fileFilter = (req, file, cb) => {
+  if (
+    allowedImages.includes(file.mimetype) ||
+    allowedVideos.includes(file.mimetype)
+  ) {
+    return cb(null, true);
+  }
+
+  return cb(
+    new Error(
+      'Invalid file type. Only JPG, PNG, WebP, GIF, MP4, WebM, MOV and AVI files are allowed.'
+    )
+  );
+};
+
+// ==========================================
+// MULTER
+// ==========================================
+
+const upload = multer({
+  storage,
+
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+
+    // Total files across images + videos
+    files: MAX_IMAGES + MAX_VIDEOS,
+  },
+
+  fileFilter,
+});
+
+// ==========================================
+// ACCEPT BOTH IMAGES AND VIDEOS
+// ==========================================
+
+export const uploadFiles = upload.fields([
+  {
+    name: 'images',
+    maxCount: MAX_IMAGES,
+  },
+  {
+    name: 'videos',
+    maxCount: MAX_VIDEOS,
+  },
+]);
