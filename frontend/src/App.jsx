@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
+// ======================================================
 // UI COMPONENTS
+// ======================================================
+
 import HeroSection from './HeroSection';
 import FrameCards from './FrameCards';
 import UploadZone from './UploadZone';
@@ -9,35 +12,44 @@ import CelebrationDetails from './CelebrationDetails';
 import Footer from './Footer';
 import BackgroundSlideshow from './BackgroundSlideshow';
 
+// ======================================================
 // UTILITIES & ASSETS
-import { generatePreviews, revokePreviews } from './fileHelpers';
+// ======================================================
+
+import {
+  generatePreviews,
+  revokePreviews,
+} from './fileHelpers';
+
 import groomImg from './assets/groom.webp';
 import brideImg from './assets/bride.webp';
 
-// Background images
 import bg1 from './assets/wedding.webp';
 import bg2 from './assets/wedding1.jpeg.webp';
 import bg3 from './assets/wedding3.jpeg.webp';
 import bg4 from './assets/wedding4.jpeg.webp';
 
-const slideshowImages = [bg1, bg2, bg3, bg4].filter(Boolean);
+// ======================================================
+// CONFIGURATION
+// ======================================================
 
-// ============================================================
-// UPLOAD CONFIGURATION
-// ============================================================
+const slideshowImages = [
+  bg1,
+  bg2,
+  bg3,
+  bg4,
+].filter(Boolean);
 
+const MAX_FILES = 5;
 const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40 MB
-const MAX_FILES = 10;
 
-const API_URL = import.meta.env.VITE_API_URL;
+// Allow enough time for large video uploads.
+// 5 minutes = 300,000 ms.
+const UPLOAD_TIMEOUT = 300000;
 
-// Supported file types
-const isSupportedFile = (file) => {
-  return (
-    file.type.startsWith('image/') ||
-    file.type.startsWith('video/')
-  );
-};
+// ======================================================
+// APP
+// ======================================================
 
 export default function App() {
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -49,106 +61,120 @@ export default function App() {
     isError: false,
   });
 
-  // ============================================================
+  // ====================================================
   // BACKGROUND SLIDESHOW
-  // ============================================================
+  // ====================================================
 
   const [currentBg, setCurrentBg] = useState(0);
 
   useEffect(() => {
-    if (!slideshowImages.length) return;
+    if (slideshowImages.length <= 1) {
+      return;
+    }
 
     const interval = setInterval(() => {
       setCurrentBg(
-        (prev) => (prev + 1) % slideshowImages.length
+        (previous) =>
+          (previous + 1) % slideshowImages.length
       );
     }, 7000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // ============================================================
-  // CLEAN UP PREVIEWS WHEN COMPONENT UNMOUNTS
-  // ============================================================
+  // ====================================================
+  // CLEAN UP PREVIEW URLS WHEN COMPONENT UNMOUNTS
+  // ====================================================
 
   useEffect(() => {
     return () => {
-      revokePreviews(previews);
+      if (previews.length > 0) {
+        revokePreviews(previews);
+      }
     };
   }, [previews]);
 
-  // ============================================================
+  // ====================================================
   // FILE SELECTION
-  // ============================================================
+  // ====================================================
 
   const handleFilesSelected = useCallback(
     (filesArray) => {
-      const files = Array.from(filesArray);
+      const files = Array.from(filesArray || []);
+
+      // -----------------------------------------------
+      // NO FILES
+      // -----------------------------------------------
 
       if (files.length === 0) {
         return;
       }
 
-      // --------------------------------------------------------
-      // CHECK MAXIMUM NUMBER OF FILES
-      // --------------------------------------------------------
+      // -----------------------------------------------
+      // MAXIMUM FILE COUNT
+      // -----------------------------------------------
 
       if (files.length > MAX_FILES) {
         setMessage({
-          text: `You can select a maximum of ${MAX_FILES} files at once.`,
+          text: `You can only upload up to ${MAX_FILES} files at once.`,
           isError: true,
         });
 
         return;
       }
 
-      // --------------------------------------------------------
-      // CHECK FILE SIZE
-      // --------------------------------------------------------
+      // -----------------------------------------------
+      // FILE SIZE VALIDATION
+      // -----------------------------------------------
 
-      const oversizedFiles = files.filter(
+      const oversizedFile = files.find(
         (file) => file.size > MAX_FILE_SIZE
       );
 
-      if (oversizedFiles.length > 0) {
-        const fileNames = oversizedFiles
-          .map((file) => file.name)
-          .join(', ');
+      if (oversizedFile) {
+        const sizeInMB = (
+          oversizedFile.size /
+          (1024 * 1024)
+        ).toFixed(1);
 
         setMessage({
-          text: `These files exceed the 40MB limit: ${fileNames}`,
+          text: `"${oversizedFile.name}" is ${sizeInMB} MB. Maximum file size is 40 MB.`,
           isError: true,
         });
 
         return;
       }
 
-      // --------------------------------------------------------
-      // CHECK FILE TYPE
-      // --------------------------------------------------------
+      // -----------------------------------------------
+      // FILE TYPE VALIDATION
+      // -----------------------------------------------
 
-      const invalidFiles = files.filter(
-        (file) => !isSupportedFile(file)
+      const invalidFile = files.find(
+        (file) =>
+          !file.type.startsWith('image/') &&
+          !file.type.startsWith('video/')
       );
 
-      if (invalidFiles.length > 0) {
+      if (invalidFile) {
         setMessage({
-          text: 'Only image and video files are allowed.',
+          text: `"${invalidFile.name}" is not a supported image or video file.`,
           isError: true,
         });
 
         return;
       }
 
-      // --------------------------------------------------------
+      // -----------------------------------------------
       // CLEAN OLD PREVIEWS
-      // --------------------------------------------------------
+      // -----------------------------------------------
 
-      revokePreviews(previews);
+      if (previews.length > 0) {
+        revokePreviews(previews);
+      }
 
-      // --------------------------------------------------------
+      // -----------------------------------------------
       // CREATE NEW PREVIEWS
-      // --------------------------------------------------------
+      // -----------------------------------------------
 
       const previewObjects = generatePreviews(files);
 
@@ -156,222 +182,304 @@ export default function App() {
       setPreviews(previewObjects);
 
       setMessage({
-        text: `${files.length} file${
-          files.length > 1 ? 's' : ''
-        } ready to upload.`,
+        text: '',
         isError: false,
       });
     },
     [previews]
   );
 
-  // ============================================================
+  // ====================================================
   // REMOVE SINGLE FILE
-  // ============================================================
+  // ====================================================
 
-  const handleRemoveFile = useCallback((idToRemove) => {
-    setPreviews((prevPreviews) => {
-      const targetIndex = prevPreviews.findIndex(
-        (item) => item.id === idToRemove
-      );
+  const handleRemoveFile = useCallback(
+    (idToRemove) => {
+      setPreviews((previousPreviews) => {
+        const targetIndex =
+          previousPreviews.findIndex(
+            (item) => item.id === idToRemove
+          );
 
-      if (targetIndex === -1) {
-        return prevPreviews;
-      }
-
-      // Revoke the specific preview URL
-      const targetPreview = prevPreviews[targetIndex];
-
-      if (targetPreview?.url) {
-        URL.revokeObjectURL(targetPreview.url);
-      }
-
-      // Remove matching File
-      setSelectedFiles((prevFiles) =>
-        prevFiles.filter(
-          (_, index) => index !== targetIndex
-        )
-      );
-
-      return prevPreviews.filter(
-        (item) => item.id !== idToRemove
-      );
-    });
-
-    setMessage({
-      text: '',
-      isError: false,
-    });
-  }, []);
-
-  // ============================================================
-  // UPLOAD FILES
-  // ============================================================
-
-  const handleUpload = useCallback(async () => {
-    if (selectedFiles.length === 0) {
-      setMessage({
-        text: 'Please select at least one file.',
-        isError: true,
-      });
-
-      return;
-    }
-
-    if (!API_URL) {
-      setMessage({
-        text: 'Upload service is not configured.',
-        isError: true,
-      });
-
-      console.error(
-        'VITE_API_URL is missing from environment variables.'
-      );
-
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // FINAL SIZE CHECK
-    // ----------------------------------------------------------
-
-    const oversizedFiles = selectedFiles.filter(
-      (file) => file.size > MAX_FILE_SIZE
-    );
-
-    if (oversizedFiles.length > 0) {
-      setMessage({
-        text: 'One or more files exceed the 40MB limit.',
-        isError: true,
-      });
-
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // START UPLOAD
-    // ----------------------------------------------------------
-
-    setUploading(true);
-
-    setMessage({
-      text: 'Uploading your memories...',
-      isError: false,
-    });
-
-    const formData = new FormData();
-
-    // IMPORTANT:
-    // Backend expects the field name "files"
-    selectedFiles.forEach((file) => {
-      formData.append('files', file);
-    });
-
-    try {
-      console.log(
-        `Uploading ${selectedFiles.length} file(s) to:`,
-        `${API_URL}/api/upload`
-      );
-
-      const response = await axios.post(
-        `${API_URL}/api/upload`,
-        formData,
-        {
-          // DO NOT manually set Content-Type.
-          // Axios/browser will set multipart/form-data
-          // with the correct boundary automatically.
-
-          timeout: 10 * 60 * 1000, // 10 minutes
-
-          onUploadProgress: (progressEvent) => {
-            if (!progressEvent.total) {
-              return;
-            }
-
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) /
-                progressEvent.total
-            );
-
-            setMessage({
-              text: `Uploading... ${percentCompleted}%`,
-              isError: false,
-            });
-          },
+        if (targetIndex === -1) {
+          return previousPreviews;
         }
-      );
 
-      // --------------------------------------------------------
-      // SUCCESS
-      // --------------------------------------------------------
+        const targetPreview =
+          previousPreviews[targetIndex];
 
-      if (response.data?.success) {
+        // ---------------------------------------------
+        // RELEASE OBJECT URL
+        // ---------------------------------------------
+
+        if (targetPreview?.url) {
+          URL.revokeObjectURL(
+            targetPreview.url
+          );
+        }
+
+        // ---------------------------------------------
+        // REMOVE MATCHING FILE
+        // ---------------------------------------------
+
+        setSelectedFiles(
+          (previousFiles) =>
+            previousFiles.filter(
+              (_, index) =>
+                index !== targetIndex
+            )
+        );
+
+        return previousPreviews.filter(
+          (item) =>
+            item.id !== idToRemove
+        );
+      });
+
+      setMessage({
+        text: '',
+        isError: false,
+      });
+    },
+    []
+  );
+
+  // ====================================================
+  // UPLOAD FILES
+  // ====================================================
+
+  const handleUpload = useCallback(
+    async () => {
+      // ---------------------------------------------
+      // PREVENT EMPTY UPLOAD
+      // ---------------------------------------------
+
+      if (selectedFiles.length === 0) {
+        setMessage({
+          text: 'Please select at least one image or video.',
+          isError: true,
+        });
+
+        return;
+      }
+
+      // ---------------------------------------------
+      // PREVENT DOUBLE CLICK / DUPLICATE UPLOAD
+      // ---------------------------------------------
+
+      if (uploading) {
+        return;
+      }
+
+      setUploading(true);
+
+      setMessage({
+        text: 'Uploading your memories...',
+        isError: false,
+      });
+
+      // ---------------------------------------------
+      // API URL
+      // ---------------------------------------------
+
+      const backendUrl =
+        import.meta.env.VITE_API_URL?.trim();
+
+      if (!backendUrl) {
+        setUploading(false);
+
         setMessage({
           text:
-            response.data.message ||
+            'Upload service is not configured. Please try again later.',
+          isError: true,
+        });
+
+        return;
+      }
+
+      // Remove trailing slash if one exists.
+      const cleanBackendUrl =
+        backendUrl.replace(/\/+$/, '');
+
+      // ---------------------------------------------
+      // FORM DATA
+      // ---------------------------------------------
+
+      const formData = new FormData();
+
+      selectedFiles.forEach((file) => {
+        if (file.type.startsWith('image/')) {
+          formData.append(
+            'images',
+            file
+          );
+        } else if (
+          file.type.startsWith('video/')
+        ) {
+          formData.append(
+            'videos',
+            file
+          );
+        }
+      });
+
+      try {
+        // -------------------------------------------
+        // UPLOAD
+        // -------------------------------------------
+
+        const response =
+          await axios.post(
+            `${cleanBackendUrl}/api/upload`,
+            formData,
+            {
+              // IMPORTANT:
+              // Do NOT manually set Content-Type.
+              // Axios/browser automatically creates the
+              // correct multipart boundary.
+              timeout: UPLOAD_TIMEOUT,
+
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity,
+
+              onUploadProgress:
+                (progressEvent) => {
+                  if (
+                    progressEvent.total
+                  ) {
+                    const percentage =
+                      Math.round(
+                        (progressEvent.loaded /
+                          progressEvent.total) *
+                          100
+                      );
+
+                    setMessage({
+                      text: `Uploading your memories... ${percentage}%`,
+                      isError: false,
+                    });
+                  }
+                },
+            }
+          );
+
+        // -------------------------------------------
+        // SUCCESS
+        // -------------------------------------------
+
+        setMessage({
+          text:
+            response.data?.message ||
             'Your memories were uploaded successfully!',
           isError: false,
         });
 
-        // Clean up preview URLs
-        revokePreviews(previews);
+        // -------------------------------------------
+        // CLEAN UP PREVIEWS
+        // -------------------------------------------
 
-        // Clear selected files
+        if (previews.length > 0) {
+          revokePreviews(previews);
+        }
+
         setSelectedFiles([]);
         setPreviews([]);
-      } else {
-        throw new Error(
-          response.data?.error ||
-            'Upload was not completed.'
+      } catch (error) {
+        console.error(
+          'Upload error:',
+          error
         );
+
+        // -------------------------------------------
+        // BACKEND ERROR
+        // -------------------------------------------
+
+        if (error.response) {
+          setMessage({
+            text:
+              error.response.data?.error ||
+              'The server could not process your upload.',
+            isError: true,
+          });
+
+          return;
+        }
+
+        // -------------------------------------------
+        // TIMEOUT
+        // -------------------------------------------
+
+        if (
+          error.code ===
+          'ECONNABORTED'
+        ) {
+          setMessage({
+            text:
+              'The upload is taking too long. Please try again with fewer or smaller files.',
+            isError: true,
+          });
+
+          return;
+        }
+
+        // -------------------------------------------
+        // NETWORK ERROR
+        // -------------------------------------------
+
+        if (
+          error.message ===
+          'Network Error'
+        ) {
+          setMessage({
+            text:
+              'Unable to connect to the upload server. Please try again.',
+            isError: true,
+          });
+
+          return;
+        }
+
+        // -------------------------------------------
+        // GENERAL ERROR
+        // -------------------------------------------
+
+        setMessage({
+          text:
+            error.message ||
+            'Upload failed. Please try again.',
+          isError: true,
+        });
+      } finally {
+        setUploading(false);
       }
-    } catch (error) {
-      console.error('Upload Error:', error);
+    },
+    [
+      selectedFiles,
+      previews,
+      uploading,
+    ]
+  );
 
-      let errorMessage =
-        'Upload failed. Please try again.';
-
-      // Server returned an error
-      if (error.response) {
-        errorMessage =
-          error.response.data?.error ||
-          `Upload failed with status ${error.response.status}.`;
-      }
-
-      // Request was sent but no response received
-      else if (error.request) {
-        errorMessage =
-          'The upload may have completed, but the server response could not be received. Please check your connection and Google Drive before trying again.';
-      }
-
-      // Something went wrong before request
-      else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      setMessage({
-        text: errorMessage,
-        isError: true,
-      });
-    } finally {
-      setUploading(false);
-    }
-  }, [selectedFiles, previews]);
-
-  // ============================================================
+  // ====================================================
   // RENDER
-  // ============================================================
+  // ====================================================
 
   return (
     <div className="relative min-h-screen text-white flex flex-col font-serif overflow-x-hidden selection:bg-pink-500 selection:text-white">
 
-      {/* BACKGROUND SLIDESHOW */}
+      {/* ==============================================
+          BACKGROUND SLIDESHOW
+      ============================================== */}
+
       <BackgroundSlideshow
         images={slideshowImages}
         current={currentBg}
       />
 
-      {/* HERO SECTION */}
+      {/* ==============================================
+          HERO SECTION
+      ============================================== */}
+
       <div className="relative z-10 min-h-[85vh] sm:min-h-[90vh] md:min-h-screen flex flex-col items-center justify-between py-6 sm:py-10 md:py-12 px-3 sm:px-6 bg-transparent">
 
         <div className="w-full max-w-6xl mx-auto flex flex-col items-center justify-between gap-6 sm:gap-8 md:gap-10">
@@ -387,9 +495,13 @@ export default function App() {
           />
 
         </div>
+
       </div>
 
-      {/* UPLOAD SECTION */}
+      {/* ==============================================
+          UPLOAD SECTION
+      ============================================== */}
+
       <div className="relative z-10 bg-transparent py-8 sm:py-12 md:py-16 px-3 sm:px-6 flex flex-col items-center text-center gap-6 sm:gap-10">
 
         <UploadZone
@@ -409,9 +521,16 @@ export default function App() {
 
       </div>
 
-      {/* FOOTER */}
+      {/* ==============================================
+          FOOTER
+      ============================================== */}
+
       <div className="relative z-10 bg-transparent mt-auto">
-        <Footer developerTag="TECH_AGBERO" />
+
+        <Footer
+          developerTag="TECH_AGBERO"
+        />
+
       </div>
 
     </div>

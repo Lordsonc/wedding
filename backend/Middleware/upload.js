@@ -1,28 +1,94 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 
 const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40 MB
-const MAX_FILES = 10;
+const MAX_FILES = 5;
 
-const TEMP_DIR = path.join(process.cwd(), 'temp');
+// ======================================================
+// TEMPORARY UPLOAD DIRECTORY
+// ======================================================
 
-// Create temp directory if it doesn't exist
-if (!fs.existsSync(TEMP_DIR)) {
-  fs.mkdirSync(TEMP_DIR, { recursive: true });
+const uploadDirectory = path.join(
+  process.cwd(),
+  'temp'
+);
+
+if (!fs.existsSync(uploadDirectory)) {
+  fs.mkdirSync(uploadDirectory, {
+    recursive: true,
+  });
 }
+
+// ======================================================
+// STORAGE
+// ======================================================
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, TEMP_DIR);
+    cb(null, uploadDirectory);
   },
 
   filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
+    const extension = path.extname(
+      file.originalname
+    );
 
-    cb(null, uniqueName);
+    cb(
+      null,
+      `${randomUUID()}${extension}`
+    );
   },
 });
+
+// ======================================================
+// ALLOWED FILE TYPES
+// ======================================================
+
+const allowedImageTypes = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
+
+const allowedVideoTypes = [
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-msvideo',
+];
+
+// ======================================================
+// FILE FILTER
+// ======================================================
+
+const fileFilter = (req, file, cb) => {
+  const isImage =
+    allowedImageTypes.includes(
+      file.mimetype
+    );
+
+  const isVideo =
+    allowedVideoTypes.includes(
+      file.mimetype
+    );
+
+  if (isImage || isVideo) {
+    return cb(null, true);
+  }
+
+  return cb(
+    new Error(
+      'Only JPG, PNG, WebP, GIF, MP4, WebM, MOV and AVI files are allowed.'
+    )
+  );
+};
+
+// ======================================================
+// MULTER
+// ======================================================
 
 const upload = multer({
   storage,
@@ -32,39 +98,40 @@ const upload = multer({
     files: MAX_FILES,
   },
 
-  fileFilter: (req, file, cb) => {
-    const allowedImageTypes = [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/gif',
-    ];
-
-    const allowedVideoTypes = [
-      'video/mp4',
-      'video/webm',
-      'video/quicktime',
-      'video/x-msvideo',
-      'video/mpeg',
-    ];
-
-    const allowedTypes = [
-      ...allowedImageTypes,
-      ...allowedVideoTypes,
-    ];
-
-    if (!allowedTypes.includes(file.mimetype)) {
-      return cb(
-        new Error(
-          'Only supported image and video files are allowed.'
-        )
-      );
-    }
-
-    cb(null, true);
-  },
+  fileFilter,
 });
 
-export const uploadFiles = upload.array('files', MAX_FILES);
+// ======================================================
+// ACCEPTED FIELD NAMES
+// ======================================================
+//
+// We accept both singular and plural names:
+//
+// images / image
+// videos / video
+//
+// This prevents "Unexpected field" errors when
+// the frontend/Postman uses either naming style.
+// ======================================================
 
-export { MAX_FILE_SIZE, MAX_FILES };
+export const uploadFiles = upload.fields([
+  {
+    name: 'images',
+    maxCount: MAX_FILES,
+  },
+
+  {
+    name: 'image',
+    maxCount: MAX_FILES,
+  },
+
+  {
+    name: 'videos',
+    maxCount: MAX_FILES,
+  },
+
+  {
+    name: 'video',
+    maxCount: MAX_FILES,
+  },
+]);
