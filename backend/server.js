@@ -10,7 +10,7 @@ const app = express();
 // ENVIRONMENT VARIABLES
 // =====================================================
 
-const PORT = process.env.PORT || 7000;
+const PORT = process.env.PORT;
 const FRONTEND_URL = process.env.FRONTEND_URL;
 
 if (!FRONTEND_URL) {

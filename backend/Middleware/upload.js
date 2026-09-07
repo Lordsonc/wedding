@@ -1,110 +1,119 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-
-// ==========================================
-// CONFIGURATION
-// ==========================================
+import { randomUUID } from 'crypto';
 
 const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40 MB
-const MAX_IMAGES = 10;
-const MAX_VIDEOS = 5;
 
-// ==========================================
+const MAX_FILES = 5;
+
+// ======================================================
 // TEMPORARY UPLOAD DIRECTORY
-// ==========================================
+// ======================================================
 
-const uploadDir = path.resolve('temp');
+const uploadDirectory = path.join(
+  process.cwd(),
+  'temp'
+);
 
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+if (!fs.existsSync(uploadDirectory)) {
+  fs.mkdirSync(uploadDirectory, {
+    recursive: true,
+  });
 }
 
-// ==========================================
-// DISK STORAGE
-// ==========================================
+// ======================================================
+// STORAGE
+// ======================================================
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir);
+    cb(null, uploadDirectory);
   },
 
   filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname);
+    const extension = path.extname(
+      file.originalname
+    );
 
-    const filename = `${Date.now()}-${Math.round(
-      Math.random() * 1e9
-    )}${extension}`;
+    const filename =
+      `${randomUUID()}${extension}`;
 
     cb(null, filename);
   },
 });
 
-// ==========================================
+// ======================================================
 // ALLOWED FILE TYPES
-// ==========================================
+// ======================================================
 
-const allowedImages = [
+const allowedImageTypes = [
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
 ];
 
-const allowedVideos = [
+const allowedVideoTypes = [
   'video/mp4',
   'video/webm',
   'video/quicktime',
   'video/x-msvideo',
 ];
 
-// ==========================================
+// ======================================================
 // FILE FILTER
-// ==========================================
+// ======================================================
 
 const fileFilter = (req, file, cb) => {
-  if (
-    allowedImages.includes(file.mimetype) ||
-    allowedVideos.includes(file.mimetype)
-  ) {
+  const isImage =
+    allowedImageTypes.includes(
+      file.mimetype
+    );
+
+  const isVideo =
+    allowedVideoTypes.includes(
+      file.mimetype
+    );
+
+  if (isImage || isVideo) {
     return cb(null, true);
   }
 
   return cb(
     new Error(
-      'Invalid file type. Only JPG, PNG, WebP, GIF, MP4, WebM, MOV and AVI files are allowed.'
+      'Only JPG, PNG, WebP, GIF, MP4, WebM, MOV and AVI files are allowed.'
     )
   );
 };
 
-// ==========================================
+// ======================================================
 // MULTER
-// ==========================================
+// ======================================================
 
 const upload = multer({
   storage,
 
   limits: {
     fileSize: MAX_FILE_SIZE,
-
-    // Total files across images + videos
-    files: MAX_IMAGES + MAX_VIDEOS,
+    files: MAX_FILES,
   },
 
   fileFilter,
 });
 
-// ==========================================
-// ACCEPT BOTH IMAGES AND VIDEOS
-// ==========================================
+// ======================================================
+// EXPORT
+// ======================================================
 
 export const uploadFiles = upload.fields([
   {
     name: 'images',
-    maxCount: MAX_IMAGES,
+    maxCount: MAX_FILES,
   },
+
   {
     name: 'videos',
-    maxCount: MAX_VIDEOS,
+    maxCount: MAX_FILES,
   },
 ]);

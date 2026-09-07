@@ -1,6 +1,6 @@
 import React, { useRef, memo } from 'react';
 
-const UploadZone = memo(({ previews, onFilesSelected, uploading, onUpload, message }) => {
+const UploadZone = memo(({ previews, onFilesSelected, onRemoveFile, uploading, onUpload, message }) => {
   const fileInputRef = useRef(null);
 
   const handleDragOver = (e) => {
@@ -14,6 +14,19 @@ const UploadZone = memo(({ previews, onFilesSelected, uploading, onUpload, messa
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       onFilesSelected(e.dataTransfer.files);
     }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files?.length) {
+      onFilesSelected(e.target.files);
+      // Reset input value so re-selecting the exact same file works after cancellation
+      e.target.value = '';
+    }
+  };
+
+  const handleRemove = (e, id) => {
+    e.stopPropagation(); // Prevents opening the file browser dialog when clicking cancel
+    onRemoveFile(id);
   };
 
   return (
@@ -31,7 +44,7 @@ const UploadZone = memo(({ previews, onFilesSelected, uploading, onUpload, messa
           accept="image/*,video/*"
           className="hidden"
           ref={fileInputRef}
-          onChange={(e) => e.target.files?.length && onFilesSelected(e.target.files)}
+          onChange={handleFileChange}
         />
 
         <h2 className="text-base xs:text-lg sm:text-2xl md:text-3xl text-stone-100 uppercase tracking-wide sm:tracking-widest font-normal mb-2 leading-snug sm:leading-normal">
@@ -44,14 +57,33 @@ const UploadZone = memo(({ previews, onFilesSelected, uploading, onUpload, messa
 
         {/* Previews Grid */}
         {previews.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 xs:gap-3 sm:gap-4 mt-4 sm:mt-6">
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mt-4 sm:mt-6">
             {previews.map((item) => (
-              <img
-                key={item.id}
-                src={item.url}
-                alt="Preview"
-                className="w-14 h-14 xs:w-16 xs:h-16 sm:w-20 sm:h-20 object-cover rounded-lg border-2 border-pink-400 shadow-md"
-              />
+              <div key={item.id} className="relative group">
+                {/* Media Preview */}
+                {item.type?.startsWith('video/') ? (
+                  <video
+                    src={item.url}
+                    className="w-14 h-14 xs:w-16 xs:h-16 sm:w-20 sm:h-20 object-cover rounded-lg border-2 border-pink-400 shadow-md"
+                  />
+                ) : (
+                  <img
+                    src={item.url}
+                    alt="Preview"
+                    className="w-14 h-14 xs:w-16 xs:h-16 sm:w-20 sm:h-20 object-cover rounded-lg border-2 border-pink-400 shadow-md"
+                  />
+                )}
+
+                {/* Cancel / Remove Button */}
+                <button
+                  type="button"
+                  onClick={(e) => handleRemove(e, item.id)}
+                  title="Remove file"
+                  className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full w-5 h-5 xs:w-6 xs:h-6 flex items-center justify-center text-xs shadow-md border border-white transition-transform transform hover:scale-110"
+                >
+                  ✕
+                </button>
+              </div>
             ))}
           </div>
         )}

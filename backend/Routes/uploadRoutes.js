@@ -3,7 +3,7 @@ import express from 'express';
 import { uploadFiles } from '../Middleware/upload.js';
 
 import {
-  uploadImagesToDrive,
+  uploadFilesToDrive,
 } from '../Controllers/uploadController.js';
 
 const router = express.Router();
@@ -11,7 +11,7 @@ const router = express.Router();
 router.post(
   '/',
   uploadFiles,
-  uploadImagesToDrive
+  uploadFilesToDrive
 );
 
 export default router;

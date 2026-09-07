@@ -8,9 +8,9 @@ export const errorHandler = (
 ) => {
   console.error('Server Error:', err);
 
-  // ==========================================
+  // ====================================================
   // MULTER ERRORS
-  // ==========================================
+  // ====================================================
 
   if (err instanceof multer.MulterError) {
     switch (err.code) {
@@ -25,33 +25,31 @@ export const errorHandler = (
         return res.status(400).json({
           success: false,
           error:
-            'Too many files. Please reduce the number of files uploaded.',
+            'Maximum 5 files are allowed per upload.',
         });
 
       case 'LIMIT_UNEXPECTED_FILE':
         return res.status(400).json({
           success: false,
           error:
-            `Unexpected upload field "${err.field}". Use "images" for photos and "videos" for videos.`,
+            `Unexpected upload field "${err.field}". Use "images" for images or "videos" for videos.`,
         });
 
       default:
         return res.status(400).json({
           success: false,
-          error:
-            err.message ||
-            'Invalid file upload.',
+          error: err.message,
         });
     }
   }
 
-  // ==========================================
+  // ====================================================
   // INVALID FILE TYPE
-  // ==========================================
+  // ====================================================
 
   if (
     err.message?.startsWith(
-      'Invalid file type.'
+      'Only JPG'
     )
   ) {
     return res.status(400).json({
@@ -60,9 +58,9 @@ export const errorHandler = (
     });
   }
 
-  // ==========================================
+  // ====================================================
   // GENERAL ERROR
-  // ==========================================
+  // ====================================================
 
   return res.status(500).json({
     success: false,

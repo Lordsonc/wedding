@@ -65,6 +65,27 @@ export default function App() {
     setMessage({ text: '', isError: false });
   }, [previews]);
 
+  // REMOVE SINGLE FILE HANDLER
+  const handleRemoveFile = useCallback((idToRemove) => {
+    setPreviews((prevPreviews) => {
+      const targetIndex = prevPreviews.findIndex((item) => item.id === idToRemove);
+      
+      if (targetIndex !== -1) {
+        // Clean up individual Object URL to release browser memory
+        if (prevPreviews[targetIndex]?.url) {
+          URL.revokeObjectURL(prevPreviews[targetIndex].url);
+        }
+
+        // Remove from raw File list at matching index
+        setSelectedFiles((prevFiles) => prevFiles.filter((_, index) => index !== targetIndex));
+      }
+
+      return prevPreviews.filter((item) => item.id !== idToRemove);
+    });
+
+    setMessage({ text: '', isError: false });
+  }, []);
+
   const handleUpload = useCallback(async () => {
     if (selectedFiles.length === 0) return;
 
@@ -129,6 +150,7 @@ export default function App() {
         <UploadZone
           previews={previews}
           onFilesSelected={handleFilesSelected}
+          onRemoveFile={handleRemoveFile}
           uploading={uploading}
           onUpload={handleUpload}
           message={message}

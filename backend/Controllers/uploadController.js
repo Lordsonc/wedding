@@ -1,171 +1,211 @@
-import { randomUUID } from 'crypto';
 import fs from 'fs';
-import fsPromises from 'fs/promises';
-import path from 'path';
-
+import { randomUUID } from 'crypto';
 import drive from '../Config/googleDrive.js';
 
-const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
-
-// Only this many Google Drive uploads run simultaneously.
-const MAX_CONCURRENT_UPLOADS = 3;
+const FOLDER_ID =
+  process.env.GOOGLE_DRIVE_FOLDER_ID;
 
 if (!FOLDER_ID) {
   throw new Error(
-    'GOOGLE_DRIVE_FOLDER_ID is missing from environment variables.'
+    'GOOGLE_DRIVE_FOLDER_ID is missing.'
   );
 }
 
-// ==========================================
-// UPLOAD ONE FILE
-// ==========================================
+// ======================================================
+// GOOGLE DRIVE CONCURRENCY CONTROL
+// ======================================================
 
-const uploadSingleFile = async (file) => {
-  const extension = path.extname(file.originalname);
+const MAX_CONCURRENT_UPLOADS = 3;
 
-  const fileName = `${randomUUID()}${extension}`;
+let activeUploads = 0;
 
-  const fileMetadata = {
-    name: fileName,
-    parents: [FOLDER_ID],
-  };
+const uploadQueue = [];
+
+// ======================================================
+// UPLOAD QUEUE
+// ======================================================
+
+const processQueue = () => {
+  if (
+    activeUploads >=
+    MAX_CONCURRENT_UPLOADS
+  ) {
+    return;
+  }
+
+  const item = uploadQueue.shift();
+
+  if (!item) {
+    return;
+  }
+
+  activeUploads++;
+
+  item.task()
+    .then(item.resolve)
+    .catch(item.reject)
+    .finally(() => {
+      activeUploads--;
+
+      processQueue();
+    });
+
+  processQueue();
+};
+
+const queueUpload = (task) => {
+  return new Promise(
+    (resolve, reject) => {
+      uploadQueue.push({
+        task,
+        resolve,
+        reject,
+      });
+
+      processQueue();
+    }
+  );
+};
+
+// ======================================================
+// DELETE TEMPORARY FILE
+// ======================================================
+
+const deleteTemporaryFile = async (
+  filePath
+) => {
+  try {
+    await fs.promises.unlink(
+      filePath
+    );
+  } catch (error) {
+    console.error(
+      'Unable to delete temporary file:',
+      error.message
+    );
+  }
+};
+
+// ======================================================
+// UPLOAD ONE FILE TO GOOGLE DRIVE
+// ======================================================
+
+const uploadToDrive = async (
+  file
+) => {
+  const fileName =
+    `${Date.now()}-${randomUUID()}-${file.originalname}`;
 
   try {
-    const response = await drive.files.create({
-      requestBody: fileMetadata,
+    const response =
+      await drive.files.create({
+        requestBody: {
+          name: fileName,
+          parents: [FOLDER_ID],
+        },
 
-      media: {
-        mimeType: file.mimetype,
-        body: fs.createReadStream(file.path),
-      },
+        media: {
+          mimeType: file.mimetype,
 
-      fields: 'id,name,mimeType,size,webViewLink',
-    });
+          body: fs.createReadStream(
+            file.path
+          ),
+        },
+
+        fields:
+          'id,name,mimeType,size,webViewLink',
+      });
 
     return {
       id: response.data.id,
+
       name: response.data.name,
-      originalName: file.originalname,
-      mimeType: response.data.mimeType,
+
+      originalName:
+        file.originalname,
+
+      mimeType:
+        response.data.mimeType,
+
       size: response.data.size,
-      webViewLink: response.data.webViewLink,
+
+      webViewLink:
+        response.data.webViewLink,
     };
   } finally {
-    // Delete temporary file
-    try {
-      await fsPromises.unlink(file.path);
-    } catch (error) {
-      console.error(
-        `Could not delete temporary file: ${file.path}`,
-        error.message
-      );
-    }
+    // Delete temporary file after
+    // Google Drive upload finishes.
+    await deleteTemporaryFile(
+      file.path
+    );
   }
 };
 
-// ==========================================
-// CONTROLLED CONCURRENCY
-// ==========================================
+// ======================================================
+// MAIN CONTROLLER
+// ======================================================
 
-const processUploads = async (files) => {
-  const results = new Array(files.length);
+export const uploadFilesToDrive =
+  async (req, res, next) => {
+    try {
+      const imageFiles =
+        req.files?.images || [];
 
-  let nextIndex = 0;
+      const videoFiles =
+        req.files?.videos || [];
 
-  const worker = async () => {
-    while (true) {
-      const index = nextIndex++;
+      const files = [
+        ...imageFiles,
+        ...videoFiles,
+      ];
 
-      if (index >= files.length) {
-        break;
+      // ----------------------------------------------
+      // CHECK FILES
+      // ----------------------------------------------
+
+      if (files.length === 0) {
+        return res.status(400).json({
+          success: false,
+
+          error:
+            'No image or video files provided.',
+        });
       }
 
-      results[index] = await uploadSingleFile(
-        files[index]
+      // ----------------------------------------------
+      // QUEUE GOOGLE DRIVE UPLOADS
+      // ----------------------------------------------
+
+      const uploadPromises =
+        files.map((file) =>
+          queueUpload(() =>
+            uploadToDrive(file)
+          )
+        );
+
+      const uploadedFiles =
+        await Promise.all(
+          uploadPromises
+        );
+
+      // ----------------------------------------------
+      // SUCCESS
+      // ----------------------------------------------
+
+      return res.status(201).json({
+        success: true,
+
+        message:
+          `${uploadedFiles.length} file(s) uploaded successfully.`,
+
+        files: uploadedFiles,
+      });
+    } catch (error) {
+      console.error(
+        'Google Drive Upload Error:',
+        error
       );
+
+      next(error);
     }
   };
-
-  const workers = Array.from(
-    {
-      length: Math.min(
-        MAX_CONCURRENT_UPLOADS,
-        files.length
-      ),
-    },
-    () => worker()
-  );
-
-  await Promise.all(workers);
-
-  return results;
-};
-
-// ==========================================
-// CONTROLLER
-// ==========================================
-
-export const uploadImagesToDrive = async (
-  req,
-  res,
-  next
-) => {
-  try {
-    const imageFiles = req.files?.images || [];
-    const videoFiles = req.files?.videos || [];
-
-    const files = [
-      ...imageFiles,
-      ...videoFiles,
-    ];
-
-    // Nothing uploaded
-    if (files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error:
-          'No image or video files were provided.',
-      });
-    }
-
-    console.log(
-      `Received ${imageFiles.length} image(s) and ${videoFiles.length} video(s).`
-    );
-
-    const uploadedFiles = await processUploads(
-      files
-    );
-
-    return res.status(201).json({
-      success: true,
-
-      message:
-        `${uploadedFiles.length} file(s) uploaded successfully.`,
-
-      files: uploadedFiles,
-    });
-  } catch (error) {
-    console.error(
-      'Google Drive Upload Error:',
-      error
-    );
-
-    // Clean up remaining temporary files
-    const files = [
-      ...(req.files?.images || []),
-      ...(req.files?.videos || []),
-    ];
-
-    await Promise.all(
-      files.map(async (file) => {
-        try {
-          await fsPromises.unlink(file.path);
-        } catch {
-          // File may already have been deleted
-        }
-      })
-    );
-
-    next(error);
-  }
-};
